@@ -450,12 +450,12 @@ impl ApplicationHandler for Application {
                 window.modifiers = modifiers.state();
                 info!("Modifiers changed to {:?}", window.modifiers);
             },
-            WindowEvent::MouseWheel { delta, .. } => match delta {
+            WindowEvent::MouseWheel { delta, phase, source, .. } => match delta {
                 MouseScrollDelta::LineDelta(x, y) => {
-                    info!("Mouse wheel Line Delta: ({x},{y})");
+                    info!("Mouse wheel Line Delta: ({x},{y}), {phase:?}, {source:?}");
                 },
                 MouseScrollDelta::PixelDelta(px) => {
-                    info!("Mouse wheel Pixel Delta: ({},{})", px.x, px.y);
+                    info!("Mouse wheel Pixel Delta: ({},{}), {phase:?}, {source:?}", px.x, px.y);
                 },
                 _ => (),
             },
