@@ -10,6 +10,7 @@ mod util;
 mod dark_mode;
 mod data_transfer;
 mod definitions;
+mod direct_manipulation;
 mod dpi;
 mod event_loop;
 mod icon;
@@ -477,6 +478,7 @@ pub struct WindowAttributesWindows {
     pub(crate) title_text_color: Option<Color>,
     pub(crate) corner_preference: Option<CornerPreference>,
     pub(crate) use_system_wheel_speed: bool,
+    pub(crate) direct_manipulation: bool,
 }
 
 impl Default for WindowAttributesWindows {
@@ -497,6 +499,7 @@ impl Default for WindowAttributesWindows {
             title_text_color: None,
             corner_preference: None,
             use_system_wheel_speed: true,
+            direct_manipulation: true,
         }
     }
 }
@@ -639,6 +642,32 @@ impl WindowAttributesWindows {
     /// The default is `true`.
     pub fn with_use_system_scroll_speed(mut self, should_use: bool) -> Self {
         self.use_system_wheel_speed = should_use;
+        self
+    }
+
+    /// Sets whether a precision touchpad's scrolling and pinching are read through
+    /// DirectManipulation.
+    ///
+    /// With it, the touchpad's [`winit_core::event::WindowEvent::MouseWheel`] events come in
+    /// pixels, with [`TouchPhase::Started`] as the fingers land and [`TouchPhase::Ended`] as they
+    /// lift, from [`ScrollSource::Finger`], and then from [`ScrollSource::Momentum`] while the
+    /// system carries on the scroll. A pinch comes as
+    /// [`winit_core::event::WindowEvent::PinchGesture`]s. Without it, scrolling comes as
+    /// `WM_MOUSEWHEEL` makes it: in fractions of lines, with no phases, from
+    /// [`ScrollSource::Unknown`], and a pinch as a wheel turned with Ctrl held.
+    ///
+    /// DirectManipulation needs COM, initialized apartment-threaded, as drag and drop does (see
+    /// [`Self::with_drag_and_drop`]). Where it can't be set up, the window goes without it.
+    ///
+    /// The default is `true`.
+    ///
+    /// [`TouchPhase::Started`]: winit_core::event::TouchPhase::Started
+    /// [`TouchPhase::Ended`]: winit_core::event::TouchPhase::Ended
+    /// [`ScrollSource::Finger`]: winit_core::event::ScrollSource::Finger
+    /// [`ScrollSource::Momentum`]: winit_core::event::ScrollSource::Momentum
+    /// [`ScrollSource::Unknown`]: winit_core::event::ScrollSource::Unknown
+    pub fn with_direct_manipulation(mut self, flag: bool) -> Self {
+        self.direct_manipulation = flag;
         self
     }
 }

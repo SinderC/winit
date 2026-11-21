@@ -63,6 +63,7 @@ use crate::data_transfer::FileDropHandler;
 use crate::definitions::{
     CLSID_TaskbarList, IID_ITaskbarList, IID_ITaskbarList2, ITaskbarList, ITaskbarList2,
 };
+use crate::direct_manipulation::DirectManipulation;
 use crate::dpi::{dpi_to_scale_factor, enable_non_client_dpi_scaling, hwnd_dpi};
 use crate::event_loop::{self, ActiveEventLoop, DESTROY_MSG_ID, Event, EventLoopRunner};
 use crate::icon::{IconType, WinCursor};
@@ -1462,11 +1463,33 @@ impl InitData<'_> {
             None
         };
 
+        let direct_manipulation = if self.win_attributes.direct_manipulation {
+            match crate::data_transfer::ensure_ole_initialized() {
+                Ok(()) => match DirectManipulation::new(
+                    win.window.hwnd(),
+                    event_loop::DIRECT_MANIPULATION_FRAME_MSG_ID.get(),
+                ) {
+                    Ok(direct_manipulation) => Some(direct_manipulation),
+                    Err(err) => {
+                        warn!("touchpad scrolling goes without DirectManipulation: {err}");
+                        None
+                    },
+                },
+                Err(err) => {
+                    warn!("touchpad scrolling goes without DirectManipulation: {err}");
+                    None
+                },
+            }
+        } else {
+            None
+        };
+
         event_loop::WindowData {
             window_state: win.window_state.clone(),
             event_loop_runner: self.runner.clone(),
             key_event_builder: KeyEventBuilder::default(),
             _file_drop_handler: file_drop_handler,
+            direct_manipulation,
             userdata_removed: Cell::new(false),
             recurse_depth: Cell::new(0),
             last_tablet_down_button_state: Cell::new(0),

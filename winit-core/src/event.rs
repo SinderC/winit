@@ -383,7 +383,9 @@ pub enum WindowEvent {
     ///
     /// ## Platform-specific
     ///
-    /// - Only available on **macOS**, **iOS**, and **Wayland**.
+    /// - Only available on **macOS**, **iOS**, **Wayland**, and **Windows**.
+    /// - On Windows, only from a precision touchpad, and not with
+    ///   `WindowAttributesWindows::with_direct_manipulation(false)`.
     /// - On iOS, not recognized by default. It must be enabled when needed.
     PinchGesture {
         device_id: Option<DeviceId>,

@@ -41,7 +41,8 @@ use windows_sys::Win32::UI::Input::{
     MOUSE_MOVE_RELATIVE, RAWINPUT, RIM_TYPEKEYBOARD, RIM_TYPEMOUSE,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CREATESTRUCTW, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
+    CREATESTRUCTW, CreateWindowExW, DM_POINTERHITTEST, DefWindowProcW, DestroyWindow,
+    DispatchMessageW,
     EnumThreadWindows, GW_OWNER, GWL_STYLE, GWL_USERDATA, GetClientRect, GetCursorPos, GetMenu,
     GetWindow, HTCAPTION, HTCLIENT, LoadCursorW, MINMAXINFO, MNC_CLOSE, MSG, MWMO_INPUTAVAILABLE,
     MsgWaitForMultipleObjectsEx, NCCALCSIZE_PARAMS, PEN_FLAG_BARREL, PEN_FLAG_ERASER,
@@ -92,6 +93,7 @@ use crate::dark_mode::try_theme;
 use crate::data_transfer::{
     DropSource, FileDropHandler, SourceDataObject, WinDataTransfer, WinTypedData,
 };
+use crate::direct_manipulation::DirectManipulation;
 use crate::dpi::{become_dpi_aware, dpi_to_scale_factor};
 use crate::event_loop::runner::PendingDrag;
 use crate::icon::WinCursor;
@@ -116,6 +118,7 @@ pub(crate) struct WindowData {
     pub event_loop_runner: Rc<EventLoopRunner>,
     pub key_event_builder: KeyEventBuilder,
     pub _file_drop_handler: Option<FileDropHandler>,
+    pub direct_manipulation: Option<DirectManipulation>,
     pub userdata_removed: Cell<bool>,
     pub last_tablet_down_button_state: Cell<u32>,
     pub recurse_depth: Cell<u32>,
@@ -1000,6 +1003,10 @@ pub(crate) static DESTROY_MSG_ID: LazyMessageId = LazyMessageId::new("Winit::Des
 // documentation in the `window_state` module for more information.
 pub(crate) static SET_RETAIN_STATE_ON_SIZE_MSG_ID: LazyMessageId =
     LazyMessageId::new("Winit::SetRetainMaximized\0");
+// Message posted to a window once per frame while a DirectManipulation gesture runs. WPARAM and
+// LPARAM are unused.
+pub(crate) static DIRECT_MANIPULATION_FRAME_MSG_ID: LazyMessageId =
+    LazyMessageId::new("Winit::DirectManipulationFrame\0");
 static THREAD_EVENT_TARGET_WINDOW_CLASS: LazyLock<Vec<u16>> =
     LazyLock::new(|| util::encode_wide("Winit Thread Event Target"));
 /// When the taskbar is created, it registers a message with the "TaskbarCreated" string and then
@@ -1375,6 +1382,9 @@ unsafe fn public_window_callback_inner(
         WM_DESTROY => {
             use winit_core::event::WindowEvent::Destroyed;
             unsafe { RevokeDragDrop(window) };
+            if let Some(direct_manipulation) = &userdata.direct_manipulation {
+                direct_manipulation.destroy();
+            }
             userdata.send_window_event(window, Destroyed);
             result = ProcResult::Value(0);
         },
@@ -1849,6 +1859,17 @@ unsafe fn public_window_callback_inner(
                 kind: Mouse,
             });
 
+            result = ProcResult::Value(0);
+        },
+
+        WM_MOUSEWHEEL | WM_MOUSEHWHEEL
+            if userdata
+                .direct_manipulation
+                .as_ref()
+                .is_some_and(DirectManipulation::is_scrolling) =>
+        {
+            // DirectManipulation sends the touchpad's gesture: this would scroll it twice.
+            tracing::debug!("dropped a wheel message during a DirectManipulation gesture");
             result = ProcResult::Value(0);
         },
 
@@ -2548,9 +2569,23 @@ unsafe fn public_window_callback_inner(
             result = ProcResult::DefWindowProc(wparam);
         },
 
+        DM_POINTERHITTEST => {
+            if let Some(direct_manipulation) = &userdata.direct_manipulation {
+                direct_manipulation.on_pointer_hit_test(wparam);
+            }
+            result = ProcResult::DefWindowProc(wparam);
+        },
+
         _ => {
             if msg == DESTROY_MSG_ID.get() {
                 unsafe { DestroyWindow(window) };
+                result = ProcResult::Value(0);
+            } else if msg == DIRECT_MANIPULATION_FRAME_MSG_ID.get() {
+                if let Some(direct_manipulation) = &userdata.direct_manipulation {
+                    for event in direct_manipulation.on_frame() {
+                        userdata.send_window_event(window, event);
+                    }
+                }
                 result = ProcResult::Value(0);
             } else if msg == SET_RETAIN_STATE_ON_SIZE_MSG_ID.get() {
                 let mut window_state = userdata.window_state_lock();

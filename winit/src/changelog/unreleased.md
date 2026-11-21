@@ -39,3 +39,11 @@ The migration guide could reference other migration examples in the current
 changelog entry.
 
 ## Unreleased
+
+### Added
+
+- On Windows, read a precision touchpad through DirectManipulation: its
+  `WindowEvent::MouseWheel` events come in pixels, with phases, from
+  `ScrollSource::Finger` and then `ScrollSource::Momentum`, and a pinch comes as
+  `WindowEvent::PinchGesture`. `WindowAttributesWindows::with_direct_manipulation(false)`
+  turns it off.
