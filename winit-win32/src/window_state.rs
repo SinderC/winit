@@ -161,6 +161,10 @@ bitflags! {
         /// `translate_outer_position`/`translate_outer_position_to_parent`.
         const ANCHORED = 1 << 23;
 
+        /// The system's resize borders for undecorated windows: the left, right and bottom
+        /// borders stay in the non-client area, and only the caption goes.
+        const MARKER_UNDECORATED_RESIZE_BORDERS = 1 << 24;
+
         const EXCLUSIVE_FULLSCREEN_OR_MASK = WindowFlags::ALWAYS_ON_TOP.bits();
     }
 }
@@ -491,14 +495,35 @@ impl WindowFlags {
         }
     }
 
+    /// Whether the window keeps the system's left, right and bottom resize borders while
+    /// undecorated and not maximized: when asked for, while it is a resizable top-level window
+    /// that isn't fullscreen.
+    ///
+    /// `MAXIMIZED` is left to the caller: it is updated in `WM_SIZE`, after the
+    /// `WM_NCCALCSIZE` that restoring the window sends, which reads the window instead.
+    pub fn has_resize_borders(self) -> bool {
+        self.contains(WindowFlags::MARKER_UNDECORATED_RESIZE_BORDERS | WindowFlags::RESIZABLE)
+            && !self.intersects(
+                WindowFlags::MARKER_DECORATIONS
+                    | WindowFlags::MARKER_EXCLUSIVE_FULLSCREEN
+                    | WindowFlags::MARKER_BORDERLESS_FULLSCREEN
+                    | WindowFlags::CHILD
+                    | WindowFlags::POPUP,
+            )
+    }
+
     pub fn adjust_rect(self, hwnd: HWND, mut rect: RECT) -> Result<RECT, io::Error> {
         unsafe {
             let mut style = GetWindowLongW(hwnd, GWL_STYLE) as u32;
             let style_ex = GetWindowLongW(hwnd, GWL_EXSTYLE) as u32;
+            let client_top = rect.top;
 
             // Frameless style implemented by manually overriding the non-client area in
-            // `WM_NCCALCSIZE`.
-            if !self.contains(WindowFlags::MARKER_DECORATIONS) {
+            // `WM_NCCALCSIZE`. With the resize borders, the window keeps its styles, so the
+            // borders come out as `DefWindowProcW` lays them out there; the top is set below.
+            let resize_borders =
+                self.has_resize_borders() && !self.contains(WindowFlags::MAXIMIZED);
+            if !self.contains(WindowFlags::MARKER_DECORATIONS) && !resize_borders {
                 style &= !(WS_CAPTION | WS_SIZEBOX);
             }
 
@@ -513,6 +538,10 @@ impl WindowFlags {
                     AdjustWindowRectEx(&mut rect, style, b_menu.into(), style_ex)
                 }
             })?;
+            if resize_borders {
+                // No caption: the top is the client area's (`WM_NCCALCSIZE`).
+                rect.top = client_top;
+            }
             Ok(rect)
         }
     }

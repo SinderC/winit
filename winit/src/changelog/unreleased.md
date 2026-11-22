@@ -47,3 +47,6 @@ changelog entry.
   `ScrollSource::Finger` and then `ScrollSource::Momentum`, and a pinch comes as
   `WindowEvent::PinchGesture`. `WindowAttributesWindows::with_direct_manipulation(false)`
   turns it off.
+- On Windows, add `WindowAttributesWindows::with_undecorated_resize_borders` and
+  `WindowExtWindows::set_undecorated_resize_borders`, to resize an undecorated window from
+  the system's borders outside its left, right and bottom edges.

@@ -264,6 +264,11 @@ pub trait WindowExtWindows {
     /// Enabling the shadow causes a thin 1px line to appear on the top of the window.
     fn set_undecorated_shadow(&self, shadow: bool);
 
+    /// Keeps or removes the system's resize borders for undecorated windows.
+    ///
+    /// See [`WindowAttributesWindows::with_undecorated_resize_borders`].
+    fn set_undecorated_resize_borders(&self, borders: bool);
+
     /// Sets system-drawn backdrop type.
     ///
     /// Requires Windows 11 build 22523+.
@@ -379,6 +384,12 @@ impl WindowExtWindows for dyn CoreWindow + '_ {
     }
 
     #[inline]
+    fn set_undecorated_resize_borders(&self, borders: bool) {
+        let window = self.cast_ref::<Window>().unwrap();
+        window.set_undecorated_resize_borders(borders)
+    }
+
+    #[inline]
     fn set_system_backdrop(&self, backdrop_type: BackdropType) {
         let window = self.cast_ref::<Window>().unwrap();
         window.set_system_backdrop(backdrop_type)
@@ -471,6 +482,7 @@ pub struct WindowAttributesWindows {
     pub(crate) skip_taskbar: bool,
     pub(crate) class_name: String,
     pub(crate) decoration_shadow: bool,
+    pub(crate) decoration_resize_borders: bool,
     pub(crate) backdrop_type: BackdropType,
     pub(crate) clip_children: bool,
     pub(crate) border_color: Option<Color>,
@@ -492,6 +504,7 @@ impl Default for WindowAttributesWindows {
             skip_taskbar: false,
             class_name: "Window Class".to_string(),
             decoration_shadow: false,
+            decoration_resize_borders: false,
             backdrop_type: BackdropType::default(),
             clip_children: true,
             border_color: None,
@@ -584,6 +597,26 @@ impl WindowAttributesWindows {
     /// Enabling the shadow causes a thin 1px line to appear on the top of the window.
     pub fn with_undecorated_shadow(mut self, shadow: bool) -> Self {
         self.decoration_shadow = shadow;
+        self
+    }
+
+    /// Keeps the system's resize borders for undecorated, resizable windows.
+    ///
+    /// Without decorations the whole window is client area, so the invisible borders the
+    /// system resizes a window from, outside its visible edges, are gone too. With this, only
+    /// the caption goes: the left, right and bottom borders stay in the non-client area, where
+    /// the system hit-tests, draws and resizes them as for a decorated window, and the
+    /// window keeps the system's drop shadow. The top has no border, and is left to the
+    /// application, for example through [`Window::drag_resize_window`]. The surface size
+    /// leaves the borders out, as with decorations.
+    ///
+    /// Maximized or fullscreen, the window has no borders.
+    ///
+    /// Off by default.
+    ///
+    /// [`Window::drag_resize_window`]: winit_core::window::Window::drag_resize_window
+    pub fn with_undecorated_resize_borders(mut self, borders: bool) -> Self {
+        self.decoration_resize_borders = borders;
         self
     }
 
