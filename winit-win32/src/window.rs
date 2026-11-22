@@ -230,6 +230,17 @@ impl Window {
         });
     }
 
+    pub fn set_undecorated_resize_borders(&self, borders: bool) {
+        let window = self.window;
+        let window_state = Arc::clone(&self.window_state);
+
+        self.thread_executor.execute_in_thread(move || {
+            WindowState::set_window_flags(window_state.lock().unwrap(), window.hwnd(), |f| {
+                f.set(WindowFlags::MARKER_UNDECORATED_RESIZE_BORDERS, borders)
+            });
+        });
+    }
+
     pub fn set_system_backdrop(&self, backdrop_type: BackdropType) {
         unsafe {
             DwmSetWindowAttribute(
@@ -1598,6 +1609,10 @@ unsafe fn init(
     window_flags.set(WindowFlags::POPUP, is_popup);
     window_flags.set(WindowFlags::ANCHORED, anchored);
     window_flags.set(WindowFlags::MARKER_UNDECORATED_SHADOW, win_attributes.decoration_shadow);
+    window_flags.set(
+        WindowFlags::MARKER_UNDECORATED_RESIZE_BORDERS,
+        win_attributes.decoration_resize_borders,
+    );
     window_flags
         .set(WindowFlags::ALWAYS_ON_TOP, attributes.window_level == WindowLevel::AlwaysOnTop);
     window_flags

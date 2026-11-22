@@ -1284,9 +1284,10 @@ unsafe fn public_window_callback_inner(
                 return;
             }
 
-            let params = unsafe { &mut *(lparam as *mut NCCALCSIZE_PARAMS) };
+            let params = lparam as *mut NCCALCSIZE_PARAMS;
 
             if util::is_maximized(window) {
+                let params = unsafe { &mut *params };
                 // Limit the window size when maximized to the current monitor.
                 // Otherwise it would include the non-existent decorations.
                 //
@@ -1297,7 +1298,18 @@ unsafe fn public_window_callback_inner(
                 if let Ok(monitor_info) = monitor::get_monitor_info(monitor) {
                     params.rgrc[0] = monitor_info.monitorInfo.rcWork;
                 }
+            } else if window_flags.has_resize_borders() {
+                // Keep the system's frame but for the caption: Windows then resizes the window
+                // from its left, right and bottom borders, outside the client area, as with
+                // decorations. The top stays the client area's, with no non-client strip: with
+                // one there, as the shadow takes below, DWM draws the caption above the window.
+                // The borders give the shadow. `WindowFlags::adjust_rect` lays the frame out the
+                // same way.
+                let top = unsafe { (*params).rgrc[0].top };
+                unsafe { DefWindowProcW(window, msg, wparam, lparam) };
+                unsafe { (*params).rgrc[0].top = top };
             } else if window_flags.contains(WindowFlags::MARKER_UNDECORATED_SHADOW) {
+                let params = unsafe { &mut *params };
                 // Extend the client area to cover the whole non-client area.
                 // https://docs.microsoft.com/en-us/windows/win32/winmsg/wm-nccalcsize#remarks
                 //

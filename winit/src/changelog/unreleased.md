@@ -39,3 +39,9 @@ The migration guide could reference other migration examples in the current
 changelog entry.
 
 ## Unreleased
+
+### Added
+
+- On Windows, add `WindowAttributesWindows::with_undecorated_resize_borders` and
+  `WindowExtWindows::set_undecorated_resize_borders`, to resize an undecorated window from
+  the system's borders outside its left, right and bottom edges.
