@@ -607,11 +607,17 @@ impl WindowAttributesWindows {
     /// application, for example through [`Window::drag_resize_window`]. The surface size
     /// leaves the borders out, as with decorations.
     ///
-    /// Maximized or fullscreen, the window has no borders.
+    /// Maximized or fullscreen, the window has no borders. It has no effect on a decorated,
+    /// non-resizable, child, owned or popup window, and overrides
+    /// [`with_undecorated_shadow`](Self::with_undecorated_shadow), as the borders bring the
+    /// shadow with them. Turned on or off on a shown window, the window keeps its outer size,
+    /// so its visible edges move by the borders' width, as with
+    /// [`Window::set_decorations`].
     ///
     /// Off by default.
     ///
     /// [`Window::drag_resize_window`]: winit_core::window::Window::drag_resize_window
+    /// [`Window::set_decorations`]: winit_core::window::Window::set_decorations
     pub fn with_undecorated_resize_borders(mut self, borders: bool) -> Self {
         self.decoration_resize_borders = borders;
         self
